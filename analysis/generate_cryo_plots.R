@@ -1,0 +1,360 @@
+#!/usr/bin/env Rscript
+
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(dplyr)
+  library(tidyr)
+  library(stringr)
+  library(readr)
+})
+
+# readxl is needed only for the Vi-CELL workbook.
+if (!requireNamespace("readxl", quietly = TRUE)) {
+  if (requireNamespace("readxl", quietly = TRUE, lib.loc = "/tmp/rlib")) {
+    .libPaths(c("/tmp/rlib", .libPaths()))
+  } else {
+    stop("Package 'readxl' is required. Install it or export CryolabA1.xls to CSV.")
+  }
+}
+suppressPackageStartupMessages(library(readxl))
+
+in_temp <- "Group_A1/Temperaturmessungen_A1.csv"
+in_vicell <- "Group_A1/CryolabA1.xls"
+out_dir <- "analysis_outputs/figures"
+dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+fill_na_linear <- function(x) {
+  ok <- which(!is.na(x))
+  if (length(ok) == 0) return(x)
+  if (length(ok) == 1) return(rep(x[ok], length(x)))
+  approx(ok, x[ok], xout = seq_along(x), method = "linear", rule = 2)$y
+}
+
+first_idx <- function(x, cond_fun) {
+  w <- which(cond_fun(x))
+  if (length(w) == 0) return(NA_integer_)
+  w[1]
+}
+
+calc_metrics <- function(df_channel) {
+  x <- df_channel$temperature_clean
+  x_fill <- fill_na_linear(x)
+  t <- df_channel$time_s
+
+  start_i <- first_idx(x_fill, function(v) !is.na(v))
+  t80_i <- first_idx(x_fill, function(v) !is.na(v) & v <= -80)
+  scan_end <- ifelse(is.na(t80_i), length(x_fill), t80_i)
+
+  d <- diff(x_fill)
+  prev <- x_fill[-length(x_fill)]
+  cand <- which(d > 0.3 & prev < -2 & seq_along(d) < scan_end)
+  nuc_i <- if (length(cand) > 0) cand[which.max(d[cand])] else NA_integer_
+
+  min_i <- which.min(x_fill)
+  t10_i <- first_idx(x_fill[min_i:length(x_fill)], function(v) v >= 10)
+  if (!is.na(t10_i)) t10_i <- t10_i + min_i - 1
+  t20_i <- first_idx(x_fill[min_i:length(x_fill)], function(v) v >= 20)
+  if (!is.na(t20_i)) t20_i <- t20_i + min_i - 1
+
+  rate <- function(i1, i2) {
+    if (is.na(i1) || is.na(i2) || t[i2] == t[i1]) return(NA_real_)
+    (x_fill[i2] - x_fill[i1]) / ((t[i2] - t[i1]) / 60)
+  }
+
+  tibble(
+    invalid_points = sum(df_channel$is_invalid, na.rm = TRUE),
+    start_temp = x_fill[start_i],
+    temp_at_minus80 = ifelse(is.na(t80_i), NA_real_, x_fill[t80_i]),
+    time_to_minus80_s = ifelse(is.na(t80_i), NA_real_, t[t80_i] - t[start_i]),
+    cooling_rate_to_minus80_k_per_min = rate(start_i, t80_i),
+    nucleation_temp_est = ifelse(is.na(nuc_i), NA_real_, x_fill[nuc_i]),
+    time_to_nucleation_s = ifelse(is.na(nuc_i), NA_real_, t[nuc_i] - t[start_i]),
+    cooling_rate_to_nucleation_k_per_min = rate(start_i, nuc_i),
+    min_temp = x_fill[min_i],
+    time_at_min_s = t[min_i],
+    thaw_rate_min_to_10_k_per_min = rate(min_i, t10_i),
+    thaw_rate_min_to_20_k_per_min = rate(min_i, t20_i)
+  )
+}
+
+# ----------------------
+# Temperature time series
+# ----------------------
+temp <- read.delim(
+  in_temp,
+  sep = ";",
+  dec = ",",
+  skip = 6,
+  header = TRUE,
+  stringsAsFactors = FALSE,
+  check.names = FALSE,
+  fileEncoding = "UTF-8-BOM"
+) %>%
+  mutate(across(3:8, as.numeric)) %>%
+  mutate(time_s = as.numeric(Messwert), time_min = time_s / 60)
+
+temp_long <- temp %>%
+  pivot_longer(
+    cols = 3:8,
+    names_to = "channel",
+    values_to = "temperature"
+  ) %>%
+  mutate(
+    team = if_else(str_detect(channel, "^Crazy Cells"), "Crazy Cells", "Cryo Masters"),
+    solution = case_when(
+      str_detect(channel, "DMSO") ~ "DMSO+FBS",
+      str_detect(channel, "Suc") ~ "Sucrose+FBS",
+      str_detect(channel, "PBS") ~ "PBS only",
+      TRUE ~ "Unknown"
+    ),
+    is_invalid = is.na(temperature) | temperature <= -500 | temperature >= 80 | abs(temperature) == 9999
+  ) %>%
+  group_by(channel) %>%
+  arrange(time_s, .by_group = TRUE) %>%
+  mutate(
+    prev = lag(temperature),
+    nxt = lead(temperature),
+    spike = !is.na(temperature) & !is.na(prev) & !is.na(nxt) &
+      abs(temperature - prev) > 20 & abs(temperature - nxt) > 20,
+    is_invalid = is_invalid | spike,
+    temperature_clean = if_else(is_invalid, NA_real_, temperature)
+  ) %>%
+  ungroup() %>%
+  select(-prev, -nxt, -spike)
+
+channel_metrics <- temp_long %>%
+  group_by(channel, team, solution) %>%
+  group_map(~ bind_cols(.y, calc_metrics(.x)), .keep = TRUE) %>%
+  bind_rows()
+
+write_csv(channel_metrics, file.path(out_dir, "temperature_metrics.csv"))
+
+colors <- c(
+  "DMSO+FBS" = "#D55E00",
+  "Sucrose+FBS" = "#009E73",
+  "PBS only" = "#0072B2"
+)
+
+base_theme <- theme_minimal(base_size = 12) +
+  theme(
+    plot.background = element_rect(fill = "white", color = NA),
+    panel.background = element_rect(fill = "white", color = NA),
+    legend.background = element_rect(fill = "white", color = NA),
+    legend.key = element_rect(fill = "white", color = NA),
+    text = element_text(color = "#111111"),
+    axis.text = element_text(color = "#111111"),
+    axis.title = element_text(color = "#111111"),
+    plot.title = element_text(color = "#111111"),
+    plot.subtitle = element_text(color = "#111111")
+  )
+
+p_full <- ggplot(
+  temp_long,
+  aes(x = time_min, y = temperature_clean, color = solution, linetype = team)
+) +
+  geom_line(linewidth = 0.5, alpha = 0.9) +
+  scale_color_manual(values = colors) +
+  coord_cartesian(ylim = c(-200, 30)) +
+  labs(
+    title = "Cryopreservation Temperature Profiles",
+    subtitle = "All six channels, cleaned for sensor outliers",
+    x = "Time (min)",
+    y = "Temperature (C)",
+    color = "CPA condition",
+    linetype = "Team"
+  ) +
+  base_theme
+
+ggsave(
+  filename = file.path(out_dir, "01_temperature_profiles_full.png"),
+  plot = p_full,
+  width = 12, height = 7, dpi = 300, bg = "white"
+)
+
+p_zoom <- ggplot(
+  temp_long,
+  aes(x = time_min, y = temperature_clean, color = solution, linetype = team)
+) +
+  geom_line(linewidth = 0.7, alpha = 0.95) +
+  geom_abline(intercept = 6, slope = -1, linewidth = 0.6, linetype = "dotted", color = "black") +
+  scale_color_manual(values = colors) +
+  coord_cartesian(xlim = c(0, 50), ylim = c(-45, 10)) +
+  labs(
+    title = "Controlled Cooling Window (0 to 50 min)",
+    subtitle = "Dotted line: -1 K/min reference from +6 C",
+    x = "Time (min)",
+    y = "Temperature (C)",
+    color = "CPA condition",
+    linetype = "Team"
+  ) +
+  base_theme
+
+ggsave(
+  filename = file.path(out_dir, "02_temperature_profiles_zoom_freezing.png"),
+  plot = p_zoom,
+  width = 12, height = 7, dpi = 300, bg = "white"
+)
+
+rates_long <- channel_metrics %>%
+  select(
+    channel, team, solution,
+    cooling_rate_to_minus80_k_per_min,
+    cooling_rate_to_nucleation_k_per_min,
+    thaw_rate_min_to_10_k_per_min
+  ) %>%
+  pivot_longer(
+    cols = -c(channel, team, solution),
+    names_to = "metric",
+    values_to = "rate_k_per_min"
+  ) %>%
+  mutate(
+    metric = recode(
+      metric,
+      cooling_rate_to_minus80_k_per_min = "Cooling to -80 C",
+      cooling_rate_to_nucleation_k_per_min = "Cooling to nucleation",
+      thaw_rate_min_to_10_k_per_min = "Thawing min to +10 C"
+    ),
+    label = str_c(team, " | ", solution)
+  )
+
+p_rates <- ggplot(
+  rates_long,
+  aes(x = label, y = rate_k_per_min, fill = solution)
+) +
+  geom_col() +
+  facet_wrap(~ metric, scales = "free_y") +
+  scale_fill_manual(values = colors) +
+  labs(
+    title = "Cooling and Thawing Rate Summary",
+    x = "Channel",
+    y = "Rate (K/min)",
+    fill = "CPA condition"
+  ) +
+  base_theme +
+  theme(axis.text.x = element_text(angle = 25, hjust = 1))
+
+ggsave(
+  filename = file.path(out_dir, "03_rate_summary.png"),
+  plot = p_rates,
+  width = 12, height = 7, dpi = 300, bg = "white"
+)
+
+# --------------------
+# Vi-CELL measurements
+# --------------------
+vicell_raw <- read_excel(in_vicell, sheet = "Vi-CELL Results", col_names = FALSE)
+vicell <- vicell_raw[6:23, 1:6]
+names(vicell) <- c(
+  "sample_id", "cell_type", "sample_date", "viability_pct",
+  "total_cells_mio_per_ml", "viable_cells_mio_per_ml"
+)
+
+vicell <- vicell %>%
+  mutate(
+    viability_pct = as.numeric(viability_pct),
+    total_cells_mio_per_ml = as.numeric(total_cells_mio_per_ml),
+    viable_cells_mio_per_ml = as.numeric(viable_cells_mio_per_ml),
+    team = if_else(str_detect(sample_id, "^Crazycells"), "Crazy Cells", "Cryo Masters"),
+    sample_code = str_extract(sample_id, "[0-9]{2}$"),
+    solution_code = str_sub(sample_code, 1, 1),
+    replicate = str_sub(sample_code, 2, 2),
+    solution = case_when(
+      solution_code == "1" ~ "DMSO+FBS",
+      solution_code == "2" ~ "Sucrose+FBS",
+      solution_code == "3" ~ "PBS only",
+      TRUE ~ "Unknown"
+    )
+  )
+
+frozen_viable <- as.numeric(vicell_raw[[10]][5])
+vicell <- vicell %>%
+  mutate(recovery_pct = 100 * viable_cells_mio_per_ml / frozen_viable)
+
+write_csv(vicell, file.path(out_dir, "vicell_clean.csv"))
+
+vicell_summary <- vicell %>%
+  group_by(team, solution) %>%
+  summarise(
+    n = n(),
+    viability_median = median(viability_pct, na.rm = TRUE),
+    viability_sd = sd(viability_pct, na.rm = TRUE),
+    recovery_median = median(recovery_pct, na.rm = TRUE),
+    recovery_sd = sd(recovery_pct, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+write_csv(vicell_summary, file.path(out_dir, "vicell_summary.csv"))
+
+pd <- position_dodge(width = 0.5)
+
+p_viability <- ggplot(vicell, aes(x = solution, y = viability_pct, color = team)) +
+  geom_jitter(width = 0.12, alpha = 0.6, size = 2) +
+  geom_point(
+    data = vicell_summary,
+    aes(x = solution, y = viability_median, group = team, color = team),
+    position = pd, size = 3, inherit.aes = FALSE
+  ) +
+  geom_errorbar(
+    data = vicell_summary,
+    aes(
+      x = solution,
+      ymin = viability_median - viability_sd,
+      ymax = viability_median + viability_sd,
+      group = team,
+      color = team
+    ),
+    width = 0.12, position = pd, inherit.aes = FALSE
+  ) +
+  scale_color_manual(values = c("Crazy Cells" = "#333333", "Cryo Masters" = "#AA3377")) +
+  scale_x_discrete(limits = c("DMSO+FBS", "Sucrose+FBS", "PBS only")) +
+  labs(
+    title = "Post-thaw Viability by CPA Condition",
+    subtitle = "Points: triplicate measurements, bars: median +/- SD",
+    x = "Condition",
+    y = "Viability (%)",
+    color = "Team"
+  ) +
+  base_theme
+
+ggsave(
+  filename = file.path(out_dir, "04_viability_by_solution.png"),
+  plot = p_viability,
+  width = 10, height = 6, dpi = 300, bg = "white"
+)
+
+p_recovery <- ggplot(vicell, aes(x = solution, y = recovery_pct, color = team)) +
+  geom_jitter(width = 0.12, alpha = 0.6, size = 2) +
+  geom_point(
+    data = vicell_summary,
+    aes(x = solution, y = recovery_median, group = team, color = team),
+    position = pd, size = 3, inherit.aes = FALSE
+  ) +
+  geom_errorbar(
+    data = vicell_summary,
+    aes(
+      x = solution,
+      ymin = recovery_median - recovery_sd,
+      ymax = recovery_median + recovery_sd,
+      group = team,
+      color = team
+    ),
+    width = 0.12, position = pd, inherit.aes = FALSE
+  ) +
+  scale_color_manual(values = c("Crazy Cells" = "#333333", "Cryo Masters" = "#AA3377")) +
+  scale_x_discrete(limits = c("DMSO+FBS", "Sucrose+FBS", "PBS only")) +
+  labs(
+    title = "Recovery Relative to Pre-freeze Viable Cells",
+    subtitle = "Computed using workbook baseline of 1.47 x10^6 viable cells/ml",
+    x = "Condition",
+    y = "Recovery (%)",
+    color = "Team"
+  ) +
+  base_theme
+
+ggsave(
+  filename = file.path(out_dir, "05_recovery_by_solution.png"),
+  plot = p_recovery,
+  width = 10, height = 6, dpi = 300, bg = "white"
+)
+
+message("Done. Figures and tables written to: ", normalizePath(out_dir))

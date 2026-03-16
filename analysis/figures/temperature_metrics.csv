@@ -1,0 +1,7 @@
+channel,team,solution,invalid_points,start_temp,temp_at_minus80,time_to_minus80_s,cooling_rate_to_minus80_k_per_min,nucleation_temp_est,time_to_nucleation_s,cooling_rate_to_nucleation_k_per_min,min_temp,time_at_min_s,thaw_rate_min_to_10_k_per_min,thaw_rate_min_to_20_k_per_min
+Crazy Cells-DMSO (°C),Crazy Cells,DMSO+FBS,0,6.84,-81.43,2861,-1.8511709192590007,-10.13,1368,-0.744298245614035,-188.09,3385,17.84843049327354,NA
+Crazy Cells-PBS (°C),Crazy Cells,PBS only,0,6.84,-85.4,2860,-1.9351048951048955,-7.13,1153,-0.7269731136166522,-188.26,3085,48.86065573770492,54.551807228915656
+Crazy Cells-Suc (°C),Crazy Cells,Sucrose+FBS,0,7.13,-80.14,2860,-1.8308391608391608,-4.86,1353,-0.5317073170731708,-187.91,3320,46.284046692607006,34.46850828729282
+Cryo Masters- DMSO (°C),Cryo Masters,DMSO+FBS,0,6.07,-81.84,2832,-1.8624999999999998,-8.27,1217,-0.7069843878389481,-190.72,3256,15.303430749682336,NA
+Cryo Masters- PBS (°C),Cryo Masters,PBS only,0,5.77,-80,2824,-1.8223087818696881,-8.23,1080,-0.7777777777777778,-190.24,3091,69.08275862068966,28.357752808988764
+Cryo Masters- Suc (°C),Cryo Masters,Sucrose+FBS,217,7.06,-80.56,2831,-1.8570116566584247,-8.1,1564,-0.5815856777493607,-190.92,3153,34.70332480818414,34.70332480818414
