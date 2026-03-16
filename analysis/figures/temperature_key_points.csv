@@ -1,0 +1,55 @@
+channel,team,solution,point,sample_index,temperature_c,time_hms
+Crazy Cells-DMSO (°C),Crazy Cells,DMSO+FBS,initial_loading,0,6.84,10:51:11
+Crazy Cells-DMSO (°C),Crazy Cells,DMSO+FBS,nucleation_onset,1368,-10.13,11:13:59
+Crazy Cells-DMSO (°C),Crazy Cells,DMSO+FBS,recalescence_peak,1379,-1.19,11:14:10
+Crazy Cells-DMSO (°C),Crazy Cells,DMSO+FBS,freezing_endpoint_minus40,2852,-40.64,11:38:43
+Crazy Cells-DMSO (°C),Crazy Cells,DMSO+FBS,freezing_endpoint_minus80,2861,-81.43,11:38:52
+Crazy Cells-DMSO (°C),Crazy Cells,DMSO+FBS,deep_cold_minimum,3385,-188.09,11:47:36
+Crazy Cells-DMSO (°C),Crazy Cells,DMSO+FBS,thaw_0C,3994,1.17,11:57:45
+Crazy Cells-DMSO (°C),Crazy Cells,DMSO+FBS,thaw_plus10C,4054,10.92,11:58:45
+Crazy Cells-DMSO (°C),Crazy Cells,DMSO+FBS,thaw_plus20C,NA,NA,NA
+Crazy Cells-PBS (°C),Crazy Cells,PBS only,initial_loading,0,6.84,10:51:11
+Crazy Cells-PBS (°C),Crazy Cells,PBS only,nucleation_onset,1153,-7.13,11:10:24
+Crazy Cells-PBS (°C),Crazy Cells,PBS only,recalescence_peak,1162,0.86,11:10:33
+Crazy Cells-PBS (°C),Crazy Cells,PBS only,freezing_endpoint_minus40,2852,-42.36,11:38:43
+Crazy Cells-PBS (°C),Crazy Cells,PBS only,freezing_endpoint_minus80,2860,-85.4,11:38:51
+Crazy Cells-PBS (°C),Crazy Cells,PBS only,deep_cold_minimum,3085,-188.26,11:42:36
+Crazy Cells-PBS (°C),Crazy Cells,PBS only,thaw_0C,3214,0.02,11:44:45
+Crazy Cells-PBS (°C),Crazy Cells,PBS only,thaw_plus10C,3329,10.44,11:46:40
+Crazy Cells-PBS (°C),Crazy Cells,PBS only,thaw_plus20C,3334,38.13,11:46:45
+Crazy Cells-Suc (°C),Crazy Cells,Sucrose+FBS,initial_loading,0,7.13,10:51:11
+Crazy Cells-Suc (°C),Crazy Cells,Sucrose+FBS,nucleation_onset,1347,-9.96,11:13:38
+Crazy Cells-Suc (°C),Crazy Cells,Sucrose+FBS,recalescence_peak,1376,-0.28,11:14:07
+Crazy Cells-Suc (°C),Crazy Cells,Sucrose+FBS,freezing_endpoint_minus40,2852,-41.44,11:38:43
+Crazy Cells-Suc (°C),Crazy Cells,Sucrose+FBS,freezing_endpoint_minus80,2860,-80.14,11:38:51
+Crazy Cells-Suc (°C),Crazy Cells,Sucrose+FBS,deep_cold_minimum,3320,-187.91,11:46:31
+Crazy Cells-Suc (°C),Crazy Cells,Sucrose+FBS,thaw_0C,3544,0.17,11:50:15
+Crazy Cells-Suc (°C),Crazy Cells,Sucrose+FBS,thaw_plus10C,3577,10.34,11:50:48
+Crazy Cells-Suc (°C),Crazy Cells,Sucrose+FBS,thaw_plus20C,3682,20.05,11:52:33
+Cryo Masters- DMSO (°C),Cryo Masters,DMSO+FBS,initial_loading,0,6.07,10:51:11
+Cryo Masters- DMSO (°C),Cryo Masters,DMSO+FBS,nucleation_onset,1215,-9.75,11:11:26
+Cryo Masters- DMSO (°C),Cryo Masters,DMSO+FBS,recalescence_peak,1228,-2.57,11:11:39
+Cryo Masters- DMSO (°C),Cryo Masters,DMSO+FBS,freezing_endpoint_minus40,2824,-43.11,11:38:15
+Cryo Masters- DMSO (°C),Cryo Masters,DMSO+FBS,freezing_endpoint_minus80,2832,-81.84,11:38:23
+Cryo Masters- DMSO (°C),Cryo Masters,DMSO+FBS,deep_cold_minimum,3256,-190.72,11:45:27
+Cryo Masters- DMSO (°C),Cryo Masters,DMSO+FBS,thaw_0C,4010,0.35,11:58:01
+Cryo Masters- DMSO (°C),Cryo Masters,DMSO+FBS,thaw_plus10C,4043,10.01,11:58:34
+Cryo Masters- DMSO (°C),Cryo Masters,DMSO+FBS,thaw_plus20C,NA,NA,NA
+Cryo Masters- PBS (°C),Cryo Masters,PBS only,initial_loading,0,5.77,10:51:11
+Cryo Masters- PBS (°C),Cryo Masters,PBS only,nucleation_onset,1080,-8.23,11:09:11
+Cryo Masters- PBS (°C),Cryo Masters,PBS only,recalescence_peak,1089,0.12,11:09:20
+Cryo Masters- PBS (°C),Cryo Masters,PBS only,freezing_endpoint_minus40,2818,-43.33,11:38:09
+Cryo Masters- PBS (°C),Cryo Masters,PBS only,freezing_endpoint_minus80,2824,-80,11:38:15
+Cryo Masters- PBS (°C),Cryo Masters,PBS only,deep_cold_minimum,3091,-190.24,11:42:42
+Cryo Masters- PBS (°C),Cryo Masters,PBS only,thaw_0C,3206,0.02,11:44:37
+Cryo Masters- PBS (°C),Cryo Masters,PBS only,thaw_plus10C,3265,10.1,11:45:36
+Cryo Masters- PBS (°C),Cryo Masters,PBS only,thaw_plus20C,3536,20.08,11:50:07
+Cryo Masters- Suc (°C),Cryo Masters,Sucrose+FBS,initial_loading,0,7.06,10:51:11
+Cryo Masters- Suc (°C),Cryo Masters,Sucrose+FBS,nucleation_onset,1561,-12.72,11:17:12
+Cryo Masters- Suc (°C),Cryo Masters,Sucrose+FBS,recalescence_peak,1587,-1.82,11:17:38
+Cryo Masters- Suc (°C),Cryo Masters,Sucrose+FBS,freezing_endpoint_minus40,2823,-41.54,11:38:14
+Cryo Masters- Suc (°C),Cryo Masters,Sucrose+FBS,freezing_endpoint_minus80,2831,-80.56,11:38:22
+Cryo Masters- Suc (°C),Cryo Masters,Sucrose+FBS,deep_cold_minimum,3153,-190.92,11:43:44
+Cryo Masters- Suc (°C),Cryo Masters,Sucrose+FBS,thaw_0C,3543,2.49,11:50:14
+Cryo Masters- Suc (°C),Cryo Masters,Sucrose+FBS,thaw_plus10C,3544,35.23,11:50:15
+Cryo Masters- Suc (°C),Cryo Masters,Sucrose+FBS,thaw_plus20C,3544,35.23,11:50:15

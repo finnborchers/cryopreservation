@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import csv
 from pathlib import Path
 
 from PIL import Image
@@ -12,6 +13,7 @@ OUTFILE = ROOT / "presentation" / "Crazy_Cells_Cryopreservation_Presentation.ppt
 FIG_DIR = ROOT / "analysis" / "figures"
 PHOTO_DIR = ROOT / "presentation" / "images"
 CONVERTED_PHOTO_DIR = PHOTO_DIR / "_converted"
+NUCLEATION_EVENTS = FIG_DIR / "nucleation_events.csv"
 
 
 def ensure_compatible_image(image_path: Path) -> Path:
@@ -153,6 +155,43 @@ def add_cover_band_image(prs, slide, image_path: Path):
     add_picture_fit(slide, image_path, left, top, width, height)
 
 
+def nucleation_bullets(csv_path: Path):
+    rows = []
+    with csv_path.open("r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            rows.append(row)
+
+    short = {
+        "Crazy Cells-DMSO (°C)": "CC-DMSO",
+        "Crazy Cells-Suc (°C)": "CC-Suc",
+        "Crazy Cells-PBS (°C)": "CC-PBS",
+        "Cryo Masters- DMSO (°C)": "CM-DMSO",
+        "Cryo Masters- Suc (°C)": "CM-Suc",
+        "Cryo Masters- PBS (°C)": "CM-PBS",
+    }
+
+    order = [
+        "Crazy Cells-DMSO (°C)",
+        "Crazy Cells-Suc (°C)",
+        "Crazy Cells-PBS (°C)",
+        "Cryo Masters- DMSO (°C)",
+        "Cryo Masters- Suc (°C)",
+        "Cryo Masters- PBS (°C)",
+    ]
+    rank = {name: i for i, name in enumerate(order)}
+    ordered = sorted(rows, key=lambda r: rank.get(r["channel"], 999))
+    bullets = ["Exact nucleation points (minimum -> rebound peak):"]
+    for r in ordered:
+        ch = short.get(r["channel"], r["channel"])
+        bullets.append(
+            f"{ch}: i{int(float(r['nucleation_index']))} ({float(r['nucleation_temp_c']):.2f} C) "
+            f"-> i{int(float(r['peak_index']))} ({float(r['peak_temp_c']):.2f} C), "
+            f"DeltaT {float(r['jump_delta_t_c']):.2f} C"
+        )
+    return bullets
+
+
 def main():
     prs = Presentation(str(TEMPLATE))
     remove_all_slides(prs)
@@ -258,6 +297,20 @@ def main():
             "Zooming into the freezing window, cooling rates to -80 C are tightly grouped between about "
             "-1.82 and -1.94 K/min, with a mean around -1.86 K/min. This run was faster than the nominal "
             "1 K/min reference. Estimated nucleation temperatures ranged roughly from -10 to -5 C."
+        ),
+    )
+
+    add_image_with_bullets_slide(
+        prs,
+        "Nucleation in Supercooled Water (Recalescence Zoom)",
+        FIG_DIR / "06_nucleation_zoom.png",
+        nucleation_bullets(NUCLEATION_EVENTS),
+        (
+            "This zoom focuses on Kristallkeimbildung in unterkuehltem Wasser. "
+            "For each channel, t = 0 marks the supercooled minimum (nucleation onset). "
+            "The temperature rebound is the recalescence peak, and DeltaT quantifies the jump due to "
+            "latent heat release during crystallization. These points are reported at exact sample indices "
+            "from the 1 Hz recording."
         ),
     )
 

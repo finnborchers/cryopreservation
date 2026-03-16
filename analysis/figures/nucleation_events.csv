@@ -1,0 +1,7 @@
+channel,team,solution,nucleation_index,nucleation_temp_c,peak_index,peak_temp_c,jump_delta_t_c,peak_rel_s,nucleation_time,peak_time
+Crazy Cells-DMSO (°C),Crazy Cells,DMSO+FBS,1368,-10.13,1379,-1.19,8.940000000000001,11,11:13:59,11:14:10
+Crazy Cells-PBS (°C),Crazy Cells,PBS only,1153,-7.13,1162,0.86,7.99,9,11:10:24,11:10:33
+Crazy Cells-Suc (°C),Crazy Cells,Sucrose+FBS,1347,-9.96,1376,-0.28,9.680000000000001,29,11:13:38,11:14:07
+Cryo Masters- DMSO (°C),Cryo Masters,DMSO+FBS,1215,-9.75,1228,-2.57,7.18,13,11:11:26,11:11:39
+Cryo Masters- PBS (°C),Cryo Masters,PBS only,1080,-8.23,1089,0.12,8.35,9,11:09:11,11:09:20
+Cryo Masters- Suc (°C),Cryo Masters,Sucrose+FBS,1561,-12.72,1587,-1.82,10.9,26,11:17:12,11:17:38

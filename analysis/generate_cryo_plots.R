@@ -18,9 +18,23 @@ if (!requireNamespace("readxl", quietly = TRUE)) {
 }
 suppressPackageStartupMessages(library(readxl))
 
-in_temp <- "Group_A1/Temperaturmessungen_A1.csv"
-in_vicell <- "Group_A1/CryolabA1.xls"
-out_dir <- "analysis_outputs/figures"
+in_temp <- if (file.exists("data/Temperaturmessungen_A1.csv")) {
+  "data/Temperaturmessungen_A1.csv"
+} else {
+  "Group_A1/Temperaturmessungen_A1.csv"
+}
+
+in_vicell <- if (file.exists("data/CryolabA1.xls")) {
+  "data/CryolabA1.xls"
+} else {
+  "Group_A1/CryolabA1.xls"
+}
+
+out_dir <- if (dir.exists("analysis/figures")) {
+  "analysis/figures"
+} else {
+  "analysis_outputs/figures"
+}
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
 fill_na_linear <- function(x) {
@@ -34,6 +48,139 @@ first_idx <- function(x, cond_fun) {
   w <- which(cond_fun(x))
   if (length(w) == 0) return(NA_integer_)
   w[1]
+}
+
+parse_start_time <- function(path) {
+  header <- readLines(path, n = 8, encoding = "UTF-8")
+  start_line <- header[str_detect(header, "^Startzeit:")][1]
+  if (is.na(start_line)) {
+    stop("Could not parse 'Startzeit' from temperature CSV header.")
+  }
+  start_txt <- str_trim(str_remove(start_line, "^Startzeit:\\s*"))
+  as.POSIXct(strptime(start_txt, format = "%d.%m.%Y %H:%M:%S", tz = "Europe/Berlin"))
+}
+
+detect_nucleation_event <- function(df_channel, start_dt) {
+  x <- fill_na_linear(df_channel$temperature_clean)
+  t <- df_channel$time_s
+
+  end_i <- first_idx(x, function(v) !is.na(v) & v <= -40)
+  if (is.na(end_i)) end_i <- length(x)
+
+  best <- NULL
+  upper_i <- max(4, end_i - 35)
+
+  for (i in seq(4, upper_i)) {
+    t0 <- x[i]
+    if (is.na(t0) || t0 < -25 || t0 > -2) next
+    if (!(t0 <= x[i - 1] && t0 <= x[i + 1])) next
+
+    w_end <- min(i + 30, length(x))
+    if (w_end <= i) next
+    w <- x[(i + 1):w_end]
+    peak_rel <- which.max(w)
+    peak_temp <- w[peak_rel]
+    rise <- peak_temp - t0
+    if (rise < 1.5) next
+
+    score <- rise - max(0, (-8 - t0)) * 0.02
+    peak_i <- i + peak_rel
+    cand <- list(score = score, nuc_i = i, peak_i = peak_i, rise = rise)
+    if (is.null(best) || cand$score > best$score) best <- cand
+  }
+
+  if (is.null(best)) {
+    return(tibble(
+      channel = df_channel$channel[1],
+      team = df_channel$team[1],
+      solution = df_channel$solution[1],
+      nucleation_index = NA_real_,
+      nucleation_temp_c = NA_real_,
+      peak_index = NA_real_,
+      peak_temp_c = NA_real_,
+      jump_delta_t_c = NA_real_,
+      peak_rel_s = NA_real_,
+      nucleation_time = NA_character_,
+      peak_time = NA_character_
+    ))
+  }
+
+  nuc_idx <- t[best$nuc_i]
+  peak_idx <- t[best$peak_i]
+  nuc_time <- start_dt + nuc_idx
+  peak_time <- start_dt + peak_idx
+
+  tibble(
+    channel = df_channel$channel[1],
+    team = df_channel$team[1],
+    solution = df_channel$solution[1],
+    nucleation_index = nuc_idx,
+    nucleation_temp_c = x[best$nuc_i],
+    peak_index = peak_idx,
+    peak_temp_c = x[best$peak_i],
+    jump_delta_t_c = best$rise,
+    peak_rel_s = peak_idx - nuc_idx,
+    nucleation_time = format(nuc_time, "%H:%M:%S"),
+    peak_time = format(peak_time, "%H:%M:%S")
+  )
+}
+
+collect_key_points <- function(df_channel, start_dt, nuc_row) {
+  x <- fill_na_linear(df_channel$temperature_clean)
+  t <- df_channel$time_s
+
+  idx_for_threshold <- function(thresh, from_i = 1) {
+    local <- first_idx(x[from_i:length(x)], function(v) !is.na(v) & v >= thresh)
+    if (is.na(local)) return(NA_integer_)
+    from_i + local - 1
+  }
+
+  point_row <- function(point_name, i_pos) {
+    if (is.na(i_pos) || i_pos < 1 || i_pos > length(x)) {
+      return(tibble(
+        channel = df_channel$channel[1],
+        team = df_channel$team[1],
+        solution = df_channel$solution[1],
+        point = point_name,
+        sample_index = NA_real_,
+        temperature_c = NA_real_,
+        time_hms = NA_character_
+      ))
+    }
+    abs_time <- start_dt + t[i_pos]
+    tibble(
+      channel = df_channel$channel[1],
+      team = df_channel$team[1],
+      solution = df_channel$solution[1],
+      point = point_name,
+      sample_index = t[i_pos],
+      temperature_c = x[i_pos],
+      time_hms = format(abs_time, "%H:%M:%S")
+    )
+  }
+
+  start_i <- first_idx(x, function(v) !is.na(v))
+  t40_i <- first_idx(x, function(v) !is.na(v) & v <= -40)
+  t80_i <- first_idx(x, function(v) !is.na(v) & v <= -80)
+  min_i <- which.min(x)
+  thaw0_i <- idx_for_threshold(0, from_i = min_i)
+  thaw10_i <- idx_for_threshold(10, from_i = min_i)
+  thaw20_i <- idx_for_threshold(20, from_i = min_i)
+
+  nuc_i <- match(nuc_row$nucleation_index, t)
+  peak_i <- match(nuc_row$peak_index, t)
+
+  bind_rows(
+    point_row("initial_loading", start_i),
+    point_row("nucleation_onset", nuc_i),
+    point_row("recalescence_peak", peak_i),
+    point_row("freezing_endpoint_minus40", t40_i),
+    point_row("freezing_endpoint_minus80", t80_i),
+    point_row("deep_cold_minimum", min_i),
+    point_row("thaw_0C", thaw0_i),
+    point_row("thaw_plus10C", thaw10_i),
+    point_row("thaw_plus20C", thaw20_i)
+  )
 }
 
 calc_metrics <- function(df_channel) {
@@ -93,6 +240,8 @@ temp <- read.delim(
   mutate(across(3:8, as.numeric)) %>%
   mutate(time_s = as.numeric(Messwert), time_min = time_s / 60)
 
+start_dt <- parse_start_time(in_temp)
+
 temp_long <- temp %>%
   pivot_longer(
     cols = 3:8,
@@ -147,6 +296,119 @@ base_theme <- theme_minimal(base_size = 12) +
     plot.title = element_text(color = "#111111"),
     plot.subtitle = element_text(color = "#111111")
   )
+
+nucleation_events <- temp_long %>%
+  group_by(channel, team, solution) %>%
+  group_map(~ detect_nucleation_event(.x, start_dt), .keep = TRUE) %>%
+  bind_rows()
+
+write_csv(nucleation_events, file.path(out_dir, "nucleation_events.csv"))
+
+temperature_key_points <- temp_long %>%
+  group_by(channel, team, solution) %>%
+  group_map(
+    ~ {
+      nuc_row <- nucleation_events %>%
+        filter(channel == .y$channel, team == .y$team, solution == .y$solution) %>%
+        slice(1)
+      collect_key_points(.x, start_dt, nuc_row)
+    },
+    .keep = TRUE
+  ) %>%
+  bind_rows()
+
+write_csv(temperature_key_points, file.path(out_dir, "temperature_key_points.csv"))
+
+nucleation_zoom <- temp_long %>%
+  inner_join(
+    nucleation_events %>% select(channel, nucleation_index, peak_rel_s),
+    by = "channel"
+  ) %>%
+  mutate(rel_s = time_s - nucleation_index) %>%
+  filter(rel_s >= -20, rel_s <= 40)
+
+nuc_ann <- nucleation_events %>%
+  mutate(
+    nuc_label = sprintf("Tnuc %.2f C", nucleation_temp_c),
+    peak_label = sprintf("Tpeak %.2f C", peak_temp_c),
+    jump_label = sprintf("DeltaT %.2f C", jump_delta_t_c),
+    mid_x = peak_rel_s / 2,
+    mid_y = (nucleation_temp_c + peak_temp_c) / 2
+  )
+
+p_nucleation <- ggplot(
+  nucleation_zoom,
+  aes(x = rel_s, y = temperature_clean, color = solution, linetype = team)
+) +
+  geom_line(linewidth = 0.7, alpha = 0.95, na.rm = TRUE) +
+  geom_point(
+    data = nuc_ann,
+    aes(x = 0, y = nucleation_temp_c),
+    color = "black",
+    fill = "white",
+    shape = 21,
+    size = 2.4,
+    inherit.aes = FALSE
+  ) +
+  geom_point(
+    data = nuc_ann,
+    aes(x = peak_rel_s, y = peak_temp_c),
+    color = "black",
+    fill = "white",
+    shape = 21,
+    size = 2.4,
+    inherit.aes = FALSE
+  ) +
+  geom_segment(
+    data = nuc_ann,
+    aes(
+      x = 0, xend = peak_rel_s,
+      y = nucleation_temp_c, yend = peak_temp_c
+    ),
+    color = "#666666",
+    linewidth = 0.45,
+    linetype = "dashed",
+    inherit.aes = FALSE
+  ) +
+  geom_text(
+    data = nuc_ann,
+    aes(x = -15, y = nucleation_temp_c, label = nuc_label),
+    size = 3,
+    hjust = 0,
+    inherit.aes = FALSE
+  ) +
+  geom_text(
+    data = nuc_ann,
+    aes(x = 6, y = peak_temp_c, label = peak_label),
+    size = 3,
+    hjust = 0,
+    inherit.aes = FALSE
+  ) +
+  geom_text(
+    data = nuc_ann,
+    aes(x = mid_x, y = mid_y + 0.8, label = jump_label),
+    size = 3,
+    color = "#333333",
+    inherit.aes = FALSE
+  ) +
+  facet_wrap(~ channel, ncol = 2) +
+  scale_color_manual(values = colors) +
+  coord_cartesian(xlim = c(-20, 40), ylim = c(-15, 5)) +
+  labs(
+    title = "Nucleation in Supercooled Water (Recalescence Zoom)",
+    subtitle = "Per-channel zoom around nucleation onset (t = 0 s): minimum, rebound peak, and DeltaT",
+    x = "Relative time from nucleation (s)",
+    y = "Temperature (C)",
+    color = "CPA condition",
+    linetype = "Team"
+  ) +
+  base_theme
+
+ggsave(
+  filename = file.path(out_dir, "06_nucleation_zoom.png"),
+  plot = p_nucleation,
+  width = 12, height = 8, dpi = 300, bg = "white"
+)
 
 p_full <- ggplot(
   temp_long,
