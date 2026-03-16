@@ -9,7 +9,7 @@ from pptx import Presentation
 
 ROOT = Path("/Users/finnborchers/Desktop/Cryo_Biokältetechnik")
 TEMPLATE = ROOT / "presentation" / "Vorlage_Präsen.pptx"
-OUTFILE = ROOT / "presentation" / "Crazy_Cells_Cryopreservation_Presentation.pptx"
+OUTFILE = ROOT / "presentation" / "CrazyCells_Presentation.pptx"
 FIG_DIR = ROOT / "analysis" / "figures"
 PHOTO_DIR = ROOT / "presentation" / "images"
 CONVERTED_PHOTO_DIR = PHOTO_DIR / "_converted"
@@ -262,13 +262,14 @@ def main():
         [
             "Temperature time series: 6 channels, 4,078 points each.",
             "Vi-CELL output: viability %, total cells, viable cells.",
-            "Calculated: cooling rate to -80 C, cooling rate to nucleation, thawing rate, recovery %.",
-            "Recovery formula: viable cells after thaw / viable cells before freezing x 100.",
+            "Calculated: controlled cooling rate (5 to 45 min), cooling to nucleation, thawing, recovery.",
+            "Recovery uses cells per sample: 0.5 ml frozen, 3 ml measured after thaw.",
         ],
         (
             "We used two data sources. First, the temperature log for all team-condition combinations. "
             "Second, Vi-CELL measurements for viability and viable-cell concentration. "
-            "From these we computed the required cooling, thawing, and recovery metrics."
+            "From these we computed the required cooling, thawing, and recovery metrics. For recovery, "
+            "we used absolute cells per sample, not only concentration per milliliter."
         ),
     )
 
@@ -294,9 +295,9 @@ def main():
         FIG_DIR / "02_temperature_profiles_zoom_freezing.png",
         FIG_DIR / "03_rate_summary.png",
         (
-            "Zooming into the freezing window, cooling rates to -80 C are tightly grouped between about "
-            "-1.82 and -1.94 K/min, with a mean around -1.86 K/min. This run was faster than the nominal "
-            "1 K/min reference. Estimated nucleation temperatures ranged roughly from -10 to -5 C."
+            "Zooming into the freezing window, we report controlled cooling from minute 5 to minute 45. "
+            "These corrected rates are close to the target, around -0.93 to -0.96 K/min. "
+            "Estimated nucleation temperatures ranged roughly from -12.7 to -7.1 C."
         ),
     )
 
@@ -306,11 +307,10 @@ def main():
         FIG_DIR / "06_nucleation_zoom.png",
         nucleation_bullets(NUCLEATION_EVENTS),
         (
-            "This zoom focuses on Kristallkeimbildung in unterkuehltem Wasser. "
-            "For each channel, t = 0 marks the supercooled minimum (nucleation onset). "
-            "The temperature rebound is the recalescence peak, and DeltaT quantifies the jump due to "
-            "latent heat release during crystallization. These points are reported at exact sample indices "
-            "from the 1 Hz recording."
+            "This zoom shows the nucleation moment for each channel. Time zero is the supercooled minimum. "
+            "After nucleation, temperature rebounds because latent heat is released as ice forms, and DeltaT "
+            "captures the size of that jump. The largest jump here is Cryo Masters sucrose (DeltaT 10.90 C). "
+            "These are thermal markers of freezing physics, not direct viability endpoints."
         ),
     )
 
@@ -319,14 +319,18 @@ def main():
         "Thawing Dynamics and Data Quality",
         FIG_DIR / "03_rate_summary.png",
         [
-            "Thawing rates are much steeper than cooling rates (expected).",
-            "Rewarming speed differs by channel and handling details.",
-            "Documented data cleaning for one noisy channel (217 invalid points).",
+            "Thawing is much faster than controlled cooling.",
+            "For PBS, Cryo Masters reaches +10 C earlier than Crazy Cells.",
+            "Cryo Masters sucrose shows a sharp jump near +10 C (interpret with caution).",
         ],
         (
-            "During thawing, the slopes are much steeper than during freezing, which is expected and generally "
-            "desired to limit recrystallization. We observed channel differences in reheating speed, and we "
-            "explicitly documented cleaning of noisy sensor values for transparent interpretation."
+            "During thawing, temperatures rise much faster than during controlled cooling. "
+            "For PBS, Cryo Masters reaches +10 C earlier than Crazy Cells in this dataset. "
+            "Crazy Cells PBS: start -187.97 C at 52.35 min, +10 C at 55.479 min, rate 63.27 K/min. "
+            "Cryo Masters PBS: start -189.51 C at 52.35 min, +10 C at 54.413 min, rate 96.73 K/min. "
+            "Sucrose rates are 78.74 K/min (Crazy Cells) and 102.14 K/min (Cryo Masters), but the "
+            "Cryo Masters sucrose trace has a sharp spike near +10 C, so this channel should be interpreted "
+            "with caution."
         ),
     )
 
@@ -337,12 +341,13 @@ def main():
         [
             "Crazy Cells medians: DMSO+FBS 85.39%, Sucrose+FBS 76.00%, PBS-only 60.00%.",
             "Cryo Masters shows similar DMSO/Sucrose tendency, but higher PBS variability.",
-            "CPA-containing media, especially DMSO-based, improve viability.",
+            "Triplicates here are technical Vi-CELL repeats from the same thawed sample.",
         ],
         (
             "For Crazy Cells, DMSO plus FBS gave the highest viability, sucrose plus FBS was intermediate, and "
             "PBS-only was lowest. Cryo Masters shows the same core pattern for DMSO and sucrose, while PBS-only "
-            "has large spread. This supports the protective role of CPAs."
+            "has large spread. Because these are technical repeat counts from one thawed sample, the spread mainly "
+            "reflects measurement scatter, mixing, or handling effects. Overall, this still supports the protective role of CPAs."
         ),
     )
 
@@ -351,14 +356,15 @@ def main():
         "Recovery Relative to Pre-freeze Viable Cells",
         FIG_DIR / "05_recovery_by_solution.png",
         [
-            "Crazy Cells recovery medians: DMSO+FBS 6.24%, Sucrose+FBS 5.91%, PBS-only 0.49%.",
-            "Cryo Masters recovery medians: DMSO+FBS 6.82%, Sucrose+FBS 4.76%, PBS-only 0.25%.",
+            "Crazy Cells recovery medians: DMSO+FBS 37.44%, Sucrose+FBS 35.47%, PBS-only 2.96%.",
+            "Cryo Masters recovery medians: DMSO+FBS 40.92%, Sucrose+FBS 28.57%, PBS-only 1.48%.",
             "Both teams: PBS-only is clearly lowest in recovery.",
         ],
         (
-            "Recovery confirms the viability trend. In both teams, DMSO and sucrose preserve much more viable "
-            "cells than PBS-only. So the ranking is consistent across independent groups: DMSO is best, sucrose "
-            "is intermediate, and PBS-only is weakest."
+            "Recovery now uses the lab-script definition of absolute cells per sample. Each sample started from "
+            "0.5 ml before freezing and was measured after thawing in 3 ml, so we converted concentration back "
+            "to recovered cell number before calculating percent recovery. With that correction, DMSO remains highest, "
+            "sucrose is intermediate, and PBS-only is clearly lowest."
         ),
     )
 

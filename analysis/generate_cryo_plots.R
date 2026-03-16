@@ -50,6 +50,38 @@ first_idx <- function(x, cond_fun) {
   w[1]
 }
 
+detect_ln2_plunge_index <- function(x, t, search_start_s = 2400, drop_window_s = 4, drop_threshold_c = -15) {
+  start_i <- first_idx(t, function(v) v >= search_start_s)
+  if (is.na(start_i)) return(NA_integer_)
+
+  max_i <- length(x) - drop_window_s
+  if (start_i > max_i) return(NA_integer_)
+
+  for (i in seq(start_i, max_i)) {
+    w <- x[i:(i + drop_window_s)]
+    if (any(is.na(w))) next
+    if ((w[length(w)] - w[1]) <= drop_threshold_c) {
+      return(i + 1)
+    }
+  }
+  NA_integer_
+}
+
+detect_thaw_start_index <- function(x, min_i, rise_window_s = 10, rise_threshold_c = 20) {
+  if (is.na(min_i)) return(NA_integer_)
+  max_i <- length(x) - rise_window_s
+  if (min_i >= max_i) return(min_i)
+
+  for (i in seq(min_i, max_i)) {
+    w <- x[i:(i + rise_window_s)]
+    if (any(is.na(w))) next
+    if ((w[length(w)] - w[1]) >= rise_threshold_c) {
+      return(i)
+    }
+  }
+  min_i
+}
+
 parse_start_time <- function(path) {
   header <- readLines(path, n = 8, encoding = "UTF-8")
   start_line <- header[str_detect(header, "^Startzeit:")][1]
@@ -162,7 +194,10 @@ collect_key_points <- function(df_channel, start_dt, nuc_row) {
   start_i <- first_idx(x, function(v) !is.na(v))
   t40_i <- first_idx(x, function(v) !is.na(v) & v <= -40)
   t80_i <- first_idx(x, function(v) !is.na(v) & v <= -80)
+  plunge_i <- detect_ln2_plunge_index(x, t, search_start_s = 2400)
+  ctrl_end_i <- ifelse(is.na(plunge_i), NA_integer_, plunge_i - 1)
   min_i <- which.min(x)
+  thaw_start_i <- detect_thaw_start_index(x, min_i)
   thaw0_i <- idx_for_threshold(0, from_i = min_i)
   thaw10_i <- idx_for_threshold(10, from_i = min_i)
   thaw20_i <- idx_for_threshold(20, from_i = min_i)
@@ -174,39 +209,72 @@ collect_key_points <- function(df_channel, start_dt, nuc_row) {
     point_row("initial_loading", start_i),
     point_row("nucleation_onset", nuc_i),
     point_row("recalescence_peak", peak_i),
+    point_row("controlled_end_pre_LN2", ctrl_end_i),
     point_row("freezing_endpoint_minus40", t40_i),
     point_row("freezing_endpoint_minus80", t80_i),
     point_row("deep_cold_minimum", min_i),
+    point_row("thaw_start_detected", thaw_start_i),
     point_row("thaw_0C", thaw0_i),
     point_row("thaw_plus10C", thaw10_i),
     point_row("thaw_plus20C", thaw20_i)
   )
 }
 
-calc_metrics <- function(df_channel) {
+calc_metrics <- function(df_channel, nucleation_index, peak_index) {
   x <- df_channel$temperature_clean
   x_fill <- fill_na_linear(x)
   t <- df_channel$time_s
 
   start_i <- first_idx(x_fill, function(v) !is.na(v))
   t80_i <- first_idx(x_fill, function(v) !is.na(v) & v <= -80)
-  scan_end <- ifelse(is.na(t80_i), length(x_fill), t80_i)
+  nuc_i <- match(nucleation_index, t)
+  if (is.na(nuc_i)) {
+    nuc_i <- NA_integer_
+  }
+  peak_i <- match(peak_index, t)
+  if (is.na(peak_i)) {
+    peak_i <- NA_integer_
+  }
 
-  d <- diff(x_fill)
-  prev <- x_fill[-length(x_fill)]
-  cand <- which(d > 0.3 & prev < -2 & seq_along(d) < scan_end)
-  nuc_i <- if (length(cand) > 0) cand[which.max(d[cand])] else NA_integer_
+  controlled_start_i <- first_idx(t, function(v) v >= 300) # minute 5
+  controlled_end_i <- first_idx(t, function(v) v >= 2700) # minute 45
+  if (is.na(controlled_end_i)) controlled_end_i <- length(t)
 
   min_i <- which.min(x_fill)
-  t10_i <- first_idx(x_fill[min_i:length(x_fill)], function(v) v >= 10)
-  if (!is.na(t10_i)) t10_i <- t10_i + min_i - 1
-  t20_i <- first_idx(x_fill[min_i:length(x_fill)], function(v) v >= 20)
-  if (!is.na(t20_i)) t20_i <- t20_i + min_i - 1
+  thaw_start_i <- detect_thaw_start_index(x_fill, min_i)
 
   rate <- function(i1, i2) {
     if (is.na(i1) || is.na(i2) || t[i2] == t[i1]) return(NA_real_)
     (x_fill[i2] - x_fill[i1]) / ((t[i2] - t[i1]) / 60)
   }
+
+  crossing_after_start <- function(threshold, start_i) {
+    if (is.na(start_i) || start_i >= length(x_fill)) return(list(t_cross = NA_real_, i_cross = NA_integer_))
+    if (!is.na(x_fill[start_i]) && x_fill[start_i] >= threshold) {
+      return(list(t_cross = t[start_i], i_cross = start_i))
+    }
+
+    for (j in seq(start_i + 1, length(x_fill))) {
+      a <- x_fill[j - 1]
+      b <- x_fill[j]
+      if (is.na(a) || is.na(b)) next
+      if (a < threshold && b >= threshold) {
+        frac <- ifelse(b == a, 0, (threshold - a) / (b - a))
+        t_cross <- t[j - 1] + frac * (t[j] - t[j - 1])
+        return(list(t_cross = t_cross, i_cross = j))
+      }
+    }
+    list(t_cross = NA_real_, i_cross = NA_integer_)
+  }
+
+  c10 <- crossing_after_start(10, thaw_start_i)
+  c20 <- crossing_after_start(20, thaw_start_i)
+  thaw_dt_10_s <- ifelse(is.na(c10$t_cross), NA_real_, c10$t_cross - t[thaw_start_i])
+  thaw_dt_20_s <- ifelse(is.na(c20$t_cross), NA_real_, c20$t_cross - t[thaw_start_i])
+  thaw_dT_10 <- 10 - x_fill[thaw_start_i]
+  thaw_dT_20 <- 20 - x_fill[thaw_start_i]
+  thaw_rate_10 <- ifelse(is.na(thaw_dt_10_s) || thaw_dt_10_s <= 0, NA_real_, thaw_dT_10 / (thaw_dt_10_s / 60))
+  thaw_rate_20 <- ifelse(is.na(thaw_dt_20_s) || thaw_dt_20_s <= 0, NA_real_, thaw_dT_20 / (thaw_dt_20_s / 60))
 
   tibble(
     invalid_points = sum(df_channel$is_invalid, na.rm = TRUE),
@@ -214,13 +282,21 @@ calc_metrics <- function(df_channel) {
     temp_at_minus80 = ifelse(is.na(t80_i), NA_real_, x_fill[t80_i]),
     time_to_minus80_s = ifelse(is.na(t80_i), NA_real_, t[t80_i] - t[start_i]),
     cooling_rate_to_minus80_k_per_min = rate(start_i, t80_i),
+    controlled_start_index_s = t[controlled_start_i],
+    controlled_end_index_s = t[controlled_end_i],
+    controlled_end_temp = x_fill[controlled_end_i],
+    cooling_rate_controlled_k_per_min = rate(controlled_start_i, controlled_end_i),
     nucleation_temp_est = ifelse(is.na(nuc_i), NA_real_, x_fill[nuc_i]),
     time_to_nucleation_s = ifelse(is.na(nuc_i), NA_real_, t[nuc_i] - t[start_i]),
     cooling_rate_to_nucleation_k_per_min = rate(start_i, nuc_i),
     min_temp = x_fill[min_i],
     time_at_min_s = t[min_i],
-    thaw_rate_min_to_10_k_per_min = rate(min_i, t10_i),
-    thaw_rate_min_to_20_k_per_min = rate(min_i, t20_i)
+    thaw_start_index_s = t[thaw_start_i],
+    thaw_start_temp = x_fill[thaw_start_i],
+    thaw_delta_temp_to_10_c = thaw_dT_10,
+    thaw_time_to_10_s = thaw_dt_10_s,
+    thaw_rate_to_10_k_per_min = thaw_rate_10,
+    thaw_rate_to_20_k_per_min = thaw_rate_20
   )
 }
 
@@ -271,13 +347,6 @@ temp_long <- temp %>%
   ungroup() %>%
   select(-prev, -nxt, -spike)
 
-channel_metrics <- temp_long %>%
-  group_by(channel, team, solution) %>%
-  group_map(~ bind_cols(.y, calc_metrics(.x)), .keep = TRUE) %>%
-  bind_rows()
-
-write_csv(channel_metrics, file.path(out_dir, "temperature_metrics.csv"))
-
 colors <- c(
   "DMSO+FBS" = "#D55E00",
   "Sucrose+FBS" = "#009E73",
@@ -304,6 +373,25 @@ nucleation_events <- temp_long %>%
 
 write_csv(nucleation_events, file.path(out_dir, "nucleation_events.csv"))
 
+channel_metrics <- temp_long %>%
+  group_by(channel, team, solution) %>%
+  group_map(
+    ~ {
+      nuc_row <- nucleation_events %>%
+        filter(channel == .y$channel, team == .y$team, solution == .y$solution) %>%
+        slice(1)
+      bind_cols(.y, calc_metrics(
+        .x,
+        nucleation_index = nuc_row$nucleation_index,
+        peak_index = nuc_row$peak_index
+      ))
+    },
+    .keep = TRUE
+  ) %>%
+  bind_rows()
+
+write_csv(channel_metrics, file.path(out_dir, "temperature_metrics.csv"))
+
 temperature_key_points <- temp_long %>%
   group_by(channel, team, solution) %>%
   group_map(
@@ -324,10 +412,18 @@ nucleation_zoom <- temp_long %>%
     nucleation_events %>% select(channel, nucleation_index, peak_rel_s),
     by = "channel"
   ) %>%
+  mutate(
+    team = factor(team, levels = c("Crazy Cells", "Cryo Masters")),
+    solution = factor(solution, levels = c("DMSO+FBS", "Sucrose+FBS", "PBS only"))
+  ) %>%
   mutate(rel_s = time_s - nucleation_index) %>%
   filter(rel_s >= -20, rel_s <= 40)
 
 nuc_ann <- nucleation_events %>%
+  mutate(
+    team = factor(team, levels = c("Crazy Cells", "Cryo Masters")),
+    solution = factor(solution, levels = c("DMSO+FBS", "Sucrose+FBS", "PBS only"))
+  ) %>%
   mutate(
     nuc_label = sprintf("Tnuc %.2f C", nucleation_temp_c),
     peak_label = sprintf("Tpeak %.2f C", peak_temp_c),
@@ -338,7 +434,7 @@ nuc_ann <- nucleation_events %>%
 
 p_nucleation <- ggplot(
   nucleation_zoom,
-  aes(x = rel_s, y = temperature_clean, color = solution, linetype = team)
+  aes(x = rel_s, y = temperature_clean, color = solution)
 ) +
   geom_line(linewidth = 0.7, alpha = 0.95, na.rm = TRUE) +
   geom_point(
@@ -391,16 +487,15 @@ p_nucleation <- ggplot(
     color = "#333333",
     inherit.aes = FALSE
   ) +
-  facet_wrap(~ channel, ncol = 2) +
+  facet_grid(solution ~ team) +
   scale_color_manual(values = colors) +
   coord_cartesian(xlim = c(-20, 40), ylim = c(-15, 5)) +
   labs(
     title = "Nucleation in Supercooled Water (Recalescence Zoom)",
-    subtitle = "Per-channel zoom around nucleation onset (t = 0 s): minimum, rebound peak, and DeltaT",
+    subtitle = "Rows: protective condition, columns: team. t = 0 s marks nucleation onset",
     x = "Relative time from nucleation (s)",
     y = "Temperature (C)",
-    color = "CPA condition",
-    linetype = "Team"
+    color = "CPA condition"
   ) +
   base_theme
 
@@ -460,9 +555,9 @@ ggsave(
 rates_long <- channel_metrics %>%
   select(
     channel, team, solution,
-    cooling_rate_to_minus80_k_per_min,
+    cooling_rate_controlled_k_per_min,
     cooling_rate_to_nucleation_k_per_min,
-    thaw_rate_min_to_10_k_per_min
+    thaw_rate_to_10_k_per_min
   ) %>%
   pivot_longer(
     cols = -c(channel, team, solution),
@@ -472,9 +567,9 @@ rates_long <- channel_metrics %>%
   mutate(
     metric = recode(
       metric,
-      cooling_rate_to_minus80_k_per_min = "Cooling to -80 C",
+      cooling_rate_controlled_k_per_min = "Controlled cooling (5 to 45 min)",
       cooling_rate_to_nucleation_k_per_min = "Cooling to nucleation",
-      thaw_rate_min_to_10_k_per_min = "Thawing min to +10 C"
+      thaw_rate_to_10_k_per_min = "Thawing rate (frozen to +10 C)"
     ),
     label = str_c(team, " | ", solution)
   )
@@ -529,8 +624,15 @@ vicell <- vicell %>%
   )
 
 frozen_viable <- as.numeric(vicell_raw[[10]][5])
+frozen_volume_ml <- 0.5
+post_thaw_volume_ml <- 3.0
+frozen_cells_per_sample_mio <- frozen_viable * frozen_volume_ml
 vicell <- vicell %>%
-  mutate(recovery_pct = 100 * viable_cells_mio_per_ml / frozen_viable)
+  mutate(
+    recovered_cells_mio = viable_cells_mio_per_ml * post_thaw_volume_ml,
+    frozen_cells_mio = frozen_cells_per_sample_mio,
+    recovery_pct = 100 * recovered_cells_mio / frozen_cells_mio
+  )
 
 write_csv(vicell, file.path(out_dir, "vicell_clean.csv"))
 
@@ -606,7 +708,7 @@ p_recovery <- ggplot(vicell, aes(x = solution, y = recovery_pct, color = team)) 
   scale_x_discrete(limits = c("DMSO+FBS", "Sucrose+FBS", "PBS only")) +
   labs(
     title = "Recovery Relative to Pre-freeze Viable Cells",
-    subtitle = "Computed using workbook baseline of 1.47 x10^6 viable cells/ml",
+    subtitle = "Recovery uses absolute cells per sample: 0.5 ml frozen, 3.0 ml measured after thaw",
     x = "Condition",
     y = "Recovery (%)",
     color = "Team"
