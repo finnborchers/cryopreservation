@@ -193,7 +193,11 @@ Key values (median +/- SD):
 Script:
 "Recovery supports the same ranking: DMSO and sucrose are much better than PBS-only.  
 Here we corrected the formula to match the lab protocol.  
-Each sample started from 500 microliters before freezing and was measured after thawing in 3 milliliters, so we converted the Vi-CELL concentration into recovered cells per sample first.  
+Each sample started from 500 microliters before freezing.  
+After thawing, washing, and centrifugation, the cells were resuspended in 3 milliliters of PBS.  
+This suspension was divided into three 1 milliliter aliquots for Vi-CELL counting.  
+These three aliquots are technical repeat measurements of the same recovered sample.  
+Recovery then compares the cells originally frozen in 0.5 milliliters with the cells estimated for the full recovered suspension after thaw.  
 With this corrected recovery, DMSO is highest, sucrose is intermediate, and PBS-only is clearly lowest.  
 So both viability and recovery indicate that cryoprotective formulation is a major driver of post-thaw success."
 

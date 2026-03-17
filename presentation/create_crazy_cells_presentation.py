@@ -263,13 +263,14 @@ def main():
             "Temperature time series: 6 channels, 4,078 points each.",
             "Vi-CELL output: viability %, total cells, viable cells.",
             "Calculated: controlled cooling rate (5 to 45 min), cooling to nucleation, thawing, recovery.",
-            "Recovery uses cells per sample: 0.5 ml frozen, 3 ml measured after thaw.",
+            "Recovery uses 0.5 ml frozen samples and 3 x 1 ml Vi-CELL aliquots after thaw.",
         ],
         (
             "We used two data sources. First, the temperature log for all team-condition combinations. "
             "Second, Vi-CELL measurements for viability and viable-cell concentration. "
-            "From these we computed the required cooling, thawing, and recovery metrics. For recovery, "
-            "we used absolute cells per sample, not only concentration per milliliter."
+            "From these we computed the required cooling, thawing, and recovery metrics. For recovery, each sample "
+            "started from 0.5 ml before freezing, was resuspended after thawing in 3 ml PBS, and then split into "
+            "three 1 ml aliquots for Vi-CELL counting."
         ),
     )
 
@@ -361,10 +362,12 @@ def main():
             "Both teams: PBS-only is clearly lowest in recovery.",
         ],
         (
-            "Recovery now uses the lab-script definition of absolute cells per sample. Each sample started from "
-            "0.5 ml before freezing and was measured after thawing in 3 ml, so we converted concentration back "
-            "to recovered cell number before calculating percent recovery. With that correction, DMSO remains highest, "
-            "sucrose is intermediate, and PBS-only is clearly lowest."
+            "Recovery uses the lab-script definition of cells recovered divided by cells frozen. Each sample "
+            "started from 0.5 ml before freezing. After thawing, washing, and centrifugation, the cells were "
+            "resuspended in 3 ml PBS. This suspension was divided into three 1 ml aliquots for Vi-CELL counting. "
+            "These aliquots are technical repeat measurements of the same recovered sample. Recovery then compares "
+            "the cells originally frozen in 0.5 ml with the cells estimated for the full recovered suspension after thaw. "
+            "With that correction, DMSO remains highest, sucrose is intermediate, and PBS-only is clearly lowest."
         ),
     )
 

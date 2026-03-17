@@ -708,7 +708,7 @@ p_recovery <- ggplot(vicell, aes(x = solution, y = recovery_pct, color = team)) 
   scale_x_discrete(limits = c("DMSO+FBS", "Sucrose+FBS", "PBS only")) +
   labs(
     title = "Recovery Relative to Pre-freeze Viable Cells",
-    subtitle = "Recovery uses absolute cells per sample: 0.5 ml frozen, 3.0 ml measured after thaw",
+    subtitle = "Recovery based on 0.5 ml frozen sample and 3 x 1 ml Vi-CELL aliquots after thaw",
     x = "Condition",
     y = "Recovery (%)",
     color = "Team"
