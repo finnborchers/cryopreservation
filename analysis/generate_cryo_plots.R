@@ -510,11 +510,12 @@ p_full <- ggplot(
   aes(x = time_min, y = temperature_clean, color = solution, linetype = team)
 ) +
   geom_line(linewidth = 0.5, alpha = 0.9) +
+  geom_hline(yintercept = 10, linewidth = 0.6, linetype = "dashed", color = "black") +
   scale_color_manual(values = colors) +
   coord_cartesian(ylim = c(-200, 30)) +
   labs(
     title = "Cryopreservation Temperature Profiles",
-    subtitle = "All six channels, cleaned for sensor outliers",
+    subtitle = "All six channels, cleaned for sensor outliers; dashed line marks +10 C thawing threshold",
     x = "Time (min)",
     y = "Temperature (C)",
     color = "CPA condition",
@@ -626,7 +627,7 @@ vicell <- vicell %>%
 frozen_viable <- as.numeric(vicell_raw[[10]][5])
 frozen_volume_ml <- 0.5
 post_thaw_volume_ml <- 3.0
-frozen_cells_per_sample_mio <- frozen_viable * frozen_volume_ml
+frozen_cells_per_sample_mio <- frozen_viable
 vicell <- vicell %>%
   mutate(
     recovered_cells_mio = viable_cells_mio_per_ml * post_thaw_volume_ml,
@@ -708,7 +709,7 @@ p_recovery <- ggplot(vicell, aes(x = solution, y = recovery_pct, color = team)) 
   scale_x_discrete(limits = c("DMSO+FBS", "Sucrose+FBS", "PBS only")) +
   labs(
     title = "Recovery Relative to Pre-freeze Viable Cells",
-    subtitle = "Recovery based on 0.5 ml frozen sample and 3 x 1 ml Vi-CELL aliquots after thaw",
+    subtitle = "Recovery based on 1.47 million cells in 0.5 ml and 3 x 1 ml Vi-CELL aliquots after thaw",
     x = "Condition",
     y = "Recovery (%)",
     color = "Team"
