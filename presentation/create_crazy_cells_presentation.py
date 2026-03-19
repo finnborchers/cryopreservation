@@ -263,14 +263,13 @@ def main():
             "Temperature time series: 6 channels, 4,078 points each.",
             "Vi-CELL output: viability %, total cells, viable cells.",
             "Calculated: controlled cooling rate (5 to 45 min), cooling to nucleation, thawing, recovery.",
-            "Recovery uses 1.47 million cells in 0.5 ml and 3 x 1 ml Vi-CELL aliquots after thaw.",
+            "Recovery denominator: 1.47 million total starting cells / 9 evaluated samples.",
         ],
         (
             "We used two data sources. First, the temperature log for all team-condition combinations. "
             "Second, Vi-CELL measurements for viability and viable-cell concentration. "
-            "From these we computed the required cooling, thawing, and recovery metrics. For recovery, each sample "
-            "started from 0.5 ml before freezing and contained 1.47 million viable cells in total. After thawing, "
-            "the cells were resuspended in 3 ml PBS and then split into three 1 ml aliquots for Vi-CELL counting."
+            "From these we computed the required cooling, thawing, and recovery metrics. For recovery, we used "
+            "1.47 million viable cells as the total starting amount and distributed that baseline across 9 evaluated samples."
         ),
     )
 
@@ -357,16 +356,15 @@ def main():
         "Recovery Relative to Pre-freeze Viable Cells",
         FIG_DIR / "05_recovery_by_solution.png",
         [
-            "Crazy Cells recovery medians: DMSO+FBS 18.72%, Sucrose+FBS 17.73%, PBS-only 1.48%.",
-            "Cryo Masters recovery medians: DMSO+FBS 20.46%, Sucrose+FBS 14.29%, PBS-only 0.74%.",
+            "Crazy Cells recovery medians: DMSO+FBS 56.16%, Sucrose+FBS 53.20%, PBS-only 4.44%.",
+            "Cryo Masters recovery medians: DMSO+FBS 61.38%, Sucrose+FBS 42.86%, PBS-only 2.22%.",
             "Both teams: PBS-only is clearly lowest in recovery.",
         ],
         (
-            "Recovery uses the lab-script definition of cells recovered divided by cells frozen. Each sample "
-            "started from 0.5 ml before freezing and contained 1.47 million viable cells in total. After thawing, washing, and centrifugation, the cells were "
-            "resuspended in 3 ml PBS. This suspension was divided into three 1 ml aliquots for Vi-CELL counting. "
-            "These aliquots are technical repeat measurements of the same recovered sample. Recovery then compares "
-            "the 1.47 million viable cells at the start with the cells estimated for the full recovered suspension after thaw. "
+            "Recovery uses the corrected denominator from the sample allocation. We treat the initial 1.47 million "
+            "viable cells as the total starting amount across 9 evaluated samples, so the baseline per sample is "
+            "1.47 divided by 9. Each Vi-CELL row then provides the recovered viable-cell value for one evaluated sample. "
+            "Recovery is calculated as recovered viable cells times 100 divided by that per-sample baseline. "
             "With that correction, DMSO remains highest, sucrose is intermediate, and PBS-only is clearly lowest."
         ),
     )

@@ -625,12 +625,11 @@ vicell <- vicell %>%
   )
 
 frozen_viable <- as.numeric(vicell_raw[[10]][5])
-frozen_volume_ml <- 0.5
-post_thaw_volume_ml <- 3.0
-frozen_cells_per_sample_mio <- frozen_viable
+n_recovery_samples <- 9
+frozen_cells_per_sample_mio <- frozen_viable / n_recovery_samples
 vicell <- vicell %>%
   mutate(
-    recovered_cells_mio = viable_cells_mio_per_ml * post_thaw_volume_ml,
+    recovered_cells_mio = viable_cells_mio_per_ml,
     frozen_cells_mio = frozen_cells_per_sample_mio,
     recovery_pct = 100 * recovered_cells_mio / frozen_cells_mio
   )
@@ -709,7 +708,7 @@ p_recovery <- ggplot(vicell, aes(x = solution, y = recovery_pct, color = team)) 
   scale_x_discrete(limits = c("DMSO+FBS", "Sucrose+FBS", "PBS only")) +
   labs(
     title = "Recovery Relative to Pre-freeze Viable Cells",
-    subtitle = "Recovery based on 1.47 million cells in 0.5 ml and 3 x 1 ml Vi-CELL aliquots after thaw",
+    subtitle = "Recovery denominator: 1.47 million total starting cells / 9 samples",
     x = "Condition",
     y = "Recovery (%)",
     color = "Team"

@@ -182,22 +182,20 @@ Insert figure: `analysis/figures/05_recovery_by_solution.png`
 
 Key values (median +/- SD):
 - Crazy Cells:
-  - DMSO+FBS: `18.72 +/- 1.11%`
-  - Sucrose+FBS: `17.73 +/- 2.33%`
-  - PBS only: `1.48 +/- 0.57%`
+  - DMSO+FBS: `56.16 +/- 3.33%`
+  - Sucrose+FBS: `53.20 +/- 6.98%`
+  - PBS only: `4.44 +/- 1.71%`
 - Cryo Masters:
-  - DMSO+FBS: `20.46 +/- 0.14%`
-  - Sucrose+FBS: `14.29 +/- 1.64%`
-  - PBS only: `0.74 +/- 0.38%`
+  - DMSO+FBS: `61.38 +/- 0.43%`
+  - Sucrose+FBS: `42.86 +/- 4.92%`
+  - PBS only: `2.22 +/- 1.13%`
 
 Script:
 "Recovery supports the same ranking: DMSO and sucrose are much better than PBS-only.  
-Here we corrected the formula to match the lab protocol.  
-Each sample started from 500 microliters before freezing, and this starting sample contained 1.47 million viable cells in total.  
-After thawing, washing, and centrifugation, the cells were resuspended in 3 milliliters of PBS.  
-This suspension was divided into three 1 milliliter aliquots for Vi-CELL counting.  
-These three aliquots are technical repeat measurements of the same recovered sample.  
-Recovery then compares the 1.47 million viable cells at the start with the cells estimated for the full recovered suspension after thaw.  
+Here we corrected the denominator again based on the sample allocation.  
+For recovery, we treat the initial 1.47 million viable cells as the total starting amount distributed across 9 evaluated samples.  
+So the starting baseline per sample is 1.47 divided by 9.  
+The Vi-CELL rows then provide the viable-cell value for each evaluated sample, and recovery is calculated as recovered viable cells times 100 divided by that per-sample baseline.  
 With this corrected recovery, DMSO is highest, sucrose is intermediate, and PBS-only is clearly lowest.  
 So both viability and recovery indicate that cryoprotective formulation is a major driver of post-thaw success."
 
